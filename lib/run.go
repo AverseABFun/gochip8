@@ -1,8 +1,7 @@
-package main
+package lib
 
 import (
 	"encoding/binary"
-	"fmt"
 	"os"
 	"os/signal"
 	"strings"
@@ -10,6 +9,7 @@ import (
 
 	"github.com/averseabfun/gochip8/engine/impl"
 	"github.com/averseabfun/gochip8/engine/types"
+	"github.com/averseabfun/gochip8/logging"
 	"github.com/go-gl/glfw/v3.3/glfw"
 )
 
@@ -34,12 +34,14 @@ func (data *Chip8Data) TickSingle() {
 TopSwitch:
 	switch inst {
 	case 0x00E0:
+		logging.Println(logging.MsgDebug, "Clearing screen")
 		for x := range data.Memory.Display {
 			for y := range data.Memory.Display[x] {
 				data.Memory.Display[x][y] = 0
-				data.Backend.DrawBackPixel(uint32(x), uint32(y), types.FromRGBNoErr(0, 0, 0))
 			}
 		}
+		data.Backend.FillBack(types.FromRGBNoErr(0, 0, 0))
+		data.Backend.TickRenderer()
 	case 0x00EE:
 		data.Registers.PC = data.Memory.Stack[data.Registers.SP] - 2
 		data.Registers.SP -= 1
@@ -66,18 +68,17 @@ TopSwitch:
 			var x = uint8((inst & 0xF00) >> 8)
 			var origX = x
 			var y = uint8((inst & 0xF0) >> 4)
-			//fmt.Printf("Writing %d bytes from 0x%X to screen pos (%d, %d)\n", numberBytes, data.Registers.I, x, y)
+			logging.Printf(logging.MsgDebug, "Writing %d bytes from 0x%X to screen pos (%d, %d)\n", numberBytes, data.Registers.I, x, y)
 			data.Registers.V[0xF] = 0
 			for offset := data.Registers.I; offset < data.Registers.I+uint16(numberBytes); offset++ {
 				if y >= 64 {
-					y -= 64
+					y %= 64
 				}
 				var b = data.Memory.AllMemory[offset]
-				//fmt.Printf("%08s\n", strconv.FormatInt(int64(b), 2))
 				var bits = getBits(b)
 				for i := 0; i < 8; i++ {
 					if x >= 128 {
-						x -= 128
+						x %= 128
 					}
 					var d uint8 = 0
 					if bits[i] {
@@ -89,6 +90,7 @@ TopSwitch:
 					data.Memory.Display[x][y] ^= d
 					if data.Memory.Display[x][y] > 0 {
 						data.Backend.DrawBackPixel(uint32(x), uint32(y), types.FromRGBNoErr(types.MAX_UINT6, types.MAX_UINT6, types.MAX_UINT6))
+
 					} else {
 						data.Backend.DrawBackPixel(uint32(x), uint32(y), types.FromRGBNoErr(0, 0, 0))
 					}
@@ -97,6 +99,7 @@ TopSwitch:
 				x = origX
 				y++
 			}
+			data.Backend.TickRenderer()
 			break TopSwitch
 		case 0x7000:
 			var register = (inst & 0xF00) >> 8
@@ -114,25 +117,21 @@ TopSwitch:
 			switch inst & 0xFF {
 			case 0x9E:
 				var register = (inst & 0xF00) >> 8
-				fmt.Println(register)
 				if data.KeysPressed.Keys[data.Registers.V[register]] {
 					data.Registers.PC += 2
-					fmt.Println("skipping")
 				}
 				break TopSwitch
 			case 0xA1:
 				var register = (inst & 0xF00) >> 8
 				if !data.KeysPressed.Keys[data.Registers.V[register]] {
 					data.Registers.PC += 2
-					fmt.Println("skipping")
 				}
 				break TopSwitch
 			}
 		default:
-			panic(fmt.Sprintf("got unknown instruction 0x%X at PC:0x%X", inst, data.Registers.PC))
+			logging.Panicf("got unknown instruction 0x%X at PC:0x%X", inst, data.Registers.PC)
 		}
 	}
-	data.Backend.TickRenderer()
 	data.Registers.PC += 2
 }
 
@@ -191,7 +190,7 @@ func (data *Chip8Data) TickAll() {
 				}
 				data.KeysPressed.Keys = [16]bool{}
 				data.KeysPressed.Keys[d] = true
-				fmt.Println(data.KeysPressed.Keys)
+				logging.Println(logging.MsgDebug, data.KeysPressed.Keys)
 			}
 		EndIf:
 			break

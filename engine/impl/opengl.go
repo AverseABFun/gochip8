@@ -6,6 +6,7 @@ import (
 
 	"github.com/averseabfun/gochip8/engine/interfaces"
 	"github.com/averseabfun/gochip8/engine/types"
+	"github.com/averseabfun/gochip8/logging"
 	"github.com/go-gl/gl/v4.6-core/gl"
 	"github.com/go-gl/glfw/v3.3/glfw"
 )
@@ -180,6 +181,7 @@ func (rr *OpenGL) DrawBackPixel(x uint32, y uint32, color types.Color) error {
 		return errors.New("got y over the height of the window")
 	}
 	rr.pixels[rr.width-1-x][rr.height-1-y] = color
+	logging.Printf(logging.MsgSpam, "Writing color (%d, %d, %d) to location (%d, %d)\n", color.R, color.G, color.B, x, y)
 	return nil
 }
 

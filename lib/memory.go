@@ -1,9 +1,10 @@
-package main
+package lib
 
 import (
-	"fmt"
 	"io"
 	"unsafe"
+
+	"github.com/averseabfun/gochip8/logging"
 )
 
 type Memory struct {
@@ -21,6 +22,7 @@ func CreateEmptyMemory() Memory {
 	out.MainMemory = (*[0xE00]uint8)(unsafe.Pointer(&out.AllMemory[0x200]))
 	out.Font = (*[80]uint8)(unsafe.Pointer(out.InterpreterReserved))
 	copy(out.Font[:], Font[:])
+	logging.Println(logging.MsgDebug, "Created empty memory")
 	return out
 }
 
@@ -31,7 +33,7 @@ func (m *Memory) LoadMemory(i io.Reader) error {
 		var bytes = make([]byte, 1)
 		_, err = i.Read(bytes)
 		if err != nil {
-			fmt.Printf("Read %d bytes\n", offset)
+			logging.Printf(logging.MsgInfo, "Read %d bytes\n", offset)
 			break
 		}
 		m.AllMemory[offset+0x200] = bytes[0]

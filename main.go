@@ -3,16 +3,24 @@ package main
 import (
 	"fmt"
 	"os"
+	"runtime"
 	"strings"
 
 	"github.com/averseabfun/gochip8/engine/impl"
+	"github.com/averseabfun/gochip8/engine/types"
+	"github.com/averseabfun/gochip8/lib"
+	"github.com/averseabfun/gochip8/logging"
 )
 
+func init() {
+	runtime.LockOSThread()
+}
+
 func main() {
-	var data = Chip8Data{
-		Memory:      CreateEmptyMemory(),
-		Registers:   Registers{},
-		KeysPressed: KeysPressed{},
+	var data = lib.Chip8Data{
+		Memory:      lib.CreateEmptyMemory(),
+		Registers:   lib.Registers{},
+		KeysPressed: lib.KeysPressed{},
 		Backend:     &impl.OpenGL{},
 	}
 	var file, err = os.Open("Cave.ch8")
@@ -65,23 +73,27 @@ func main() {
 			}
 			data.KeysPressed.Keys = [16]bool{}
 			data.KeysPressed.Keys[d] = true
-			fmt.Println(data.KeysPressed.Keys)
+			logging.Println(logging.MsgDebug, data.KeysPressed.Keys)
 		} else {
 			c = strings.TrimSuffix(c, ";")
 			switch strings.ToLower(c) {
 			case "step", "s", "st", "ste":
-				fmt.Println("Stepping...")
+				logging.Println(logging.MsgInfo, "Stepping...")
 				data.TickSingle()
+			case "tick", "tic", "ti", "t":
+				logging.Println(logging.MsgInfo, "Ticking renderer...")
+				data.Backend.DrawBackPixel(5, 5, types.FromRGBNoErr(types.MAX_UINT6, types.MAX_UINT6, types.MAX_UINT6))
+				data.Backend.TickRenderer()
 			case "continue", "continu", "contin", "conti", "cont", "con", "co", "c":
 				data.TickAll()
 			case "screen", "scree", "scre", "scr", "sc", "r":
 				for _, val := range data.Memory.Display[:] {
-					fmt.Printf("%v\n", val)
+					logging.Printf(logging.MsgNoPrefix, "%v\n", val)
 				}
 			case "quit", "qui", "qu", "q":
 				os.Exit(0)
 			case "dump", "dum", "du", "d":
-				fmt.Printf(
+				logging.Printf(logging.MsgNoPrefix,
 					"Registers: \n\tV0: 0x%X\n\tV1: 0x%X\n\tV2: 0x%X\n\tV3: 0x%X\n\tV4: 0x%X\n\tV5: 0x%X\n\tV6: 0x%X\n\tV7: 0x%X\n\tV8: 0x%X\n\tV9: 0x%X\n\tVA: 0x%X\n\tVB: 0x%X\n\tVC: 0x%X\n\tVD: 0x%X\n\tVE: 0x%X\n\tVF: 0x%X\n",
 					data.Registers.V[0x0],
 					data.Registers.V[0x1],
@@ -100,7 +112,7 @@ func main() {
 					data.Registers.V[0xE],
 					data.Registers.V[0xF],
 				)
-				fmt.Printf(
+				logging.Printf(logging.MsgNoPrefix,
 					"\tI: 0x%X\n\tDT: 0x%X\n\tST: 0x%X\n\tPC: 0x%X\n\tSP: 0x%X\n",
 					data.Registers.I,
 					data.Registers.DT,

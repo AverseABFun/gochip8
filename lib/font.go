@@ -1,4 +1,4 @@
-package main
+package lib
 
 var Font = [80]uint8{
 	0b11110000,
