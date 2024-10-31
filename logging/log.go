@@ -77,7 +77,7 @@ func CreateLogger(writer io.Writer) Logger {
 }
 
 func (l *Logger) Output(level Level, calldepth int, s string) error {
-	if level >= l.displayLevel {
+	if level < l.displayLevel {
 		return nil
 	}
 	l.logger.SetPrefix(l.GetPrefix(level))
@@ -85,7 +85,7 @@ func (l *Logger) Output(level Level, calldepth int, s string) error {
 }
 
 func (l *Logger) Print(level Level, v ...any) {
-	if level >= l.displayLevel {
+	if level < l.displayLevel {
 		return
 	}
 	l.logger.SetPrefix(l.GetPrefix(level))
@@ -107,7 +107,7 @@ func (l *Logger) Panic(v ...any) {
 }
 
 func (l *Logger) Printf(level Level, format string, v ...any) {
-	if level >= l.displayLevel {
+	if level < l.displayLevel {
 		return
 	}
 	l.logger.SetPrefix(l.GetPrefix(level))
@@ -129,7 +129,7 @@ func (l *Logger) Panicf(format string, v ...any) {
 }
 
 func (l *Logger) Println(level Level, v ...any) {
-	if level >= l.displayLevel {
+	if level < l.displayLevel {
 		return
 	}
 	l.logger.SetPrefix(l.GetPrefix(level))

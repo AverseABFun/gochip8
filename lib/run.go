@@ -65,21 +65,16 @@ TopSwitch:
 			break TopSwitch
 		case 0xD000:
 			var numberBytes = uint8(inst & 0xF)
-			var x = uint8((inst & 0xF00) >> 8)
-			var origX = x
-			var y = uint8((inst & 0xF0) >> 4)
+			var x = data.Registers.V[(inst&0xF00)>>8]
+			var y = data.Registers.V[(inst&0xF0)>>4]
 			logging.Printf(logging.MsgDebug, "Writing %d bytes from 0x%X to screen pos (%d, %d)\n", numberBytes, data.Registers.I, x, y)
 			data.Registers.V[0xF] = 0
 			for offset := data.Registers.I; offset < data.Registers.I+uint16(numberBytes); offset++ {
-				if y >= 64 {
-					y %= 64
-				}
+				y %= 64
 				var b = data.Memory.AllMemory[offset]
 				var bits = getBits(b)
 				for i := 0; i < 8; i++ {
-					if x >= 128 {
-						x %= 128
-					}
+					x %= 128
 					var d uint8 = 0
 					if bits[i] {
 						d = 0xFF
@@ -90,13 +85,12 @@ TopSwitch:
 					data.Memory.Display[x][y] ^= d
 					if data.Memory.Display[x][y] > 0 {
 						data.Backend.DrawBackPixel(uint32(x), uint32(y), types.FromRGBNoErr(types.MAX_UINT6, types.MAX_UINT6, types.MAX_UINT6))
-
 					} else {
 						data.Backend.DrawBackPixel(uint32(x), uint32(y), types.FromRGBNoErr(0, 0, 0))
 					}
 					x++
 				}
-				x = origX
+				x = x - 8
 				y++
 			}
 			data.Backend.TickRenderer()

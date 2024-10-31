@@ -29,6 +29,7 @@ func main() {
 	}
 	data.Memory.LoadMemory(file)
 	data.InitalizeData()
+	logging.SetDisplay(logging.MsgNoPrefix)
 	data.TickAll()
 	var c = ""
 	var d = 0
