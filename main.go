@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/averseabfun/gochip8/engine/impl"
-	"github.com/averseabfun/gochip8/engine/types"
 	"github.com/averseabfun/gochip8/lib"
 	"github.com/averseabfun/gochip8/logging"
 )
@@ -23,7 +22,7 @@ func main() {
 		KeysPressed: lib.KeysPressed{},
 		Backend:     &impl.OpenGL{},
 	}
-	var file, err = os.Open("Cave.ch8")
+	var file, err = os.Open("chip8-test-suite/bin/3-corax+.ch8")
 	if err != nil {
 		panic(err)
 	}
@@ -33,8 +32,11 @@ func main() {
 	data.TickAll()
 	var c = ""
 	var d = 0
+	go func() {
+		data.Backend.TickRenderer()
+	}()
 	for {
-		fmt.Scanf("%s", &c)
+		fmt.Scanln(&c)
 		if !strings.HasSuffix(c, ";") && c != "" {
 			switch strings.ToLower(c)[0] {
 			case '1':
@@ -78,23 +80,24 @@ func main() {
 		} else {
 			c = strings.TrimSuffix(c, ";")
 			switch strings.ToLower(c) {
+			case "speed", "spee", "spe", "sp", "p":
+				fmt.Print("Please enter the speed in Hz: ")
+				fmt.Scanf("%f\n", &data.ClockSpeed)
 			case "step", "s", "st", "ste":
 				logging.Println(logging.MsgInfo, "Stepping...")
 				data.TickSingle()
-			case "tick", "tic", "ti", "t":
-				logging.Println(logging.MsgInfo, "Ticking renderer...")
-				data.Backend.DrawBackPixel(5, 5, types.FromRGBNoErr(types.MAX_UINT6, types.MAX_UINT6, types.MAX_UINT6))
-				data.Backend.TickRenderer()
+			case "stack", "stac", "sta", "a":
+				logging.Printf(logging.MsgAlwaysDisplay, "Stack: %v", data.Memory.Stack)
 			case "continue", "continu", "contin", "conti", "cont", "con", "co", "c":
 				data.TickAll()
 			case "screen", "scree", "scre", "scr", "sc", "r":
 				for _, val := range data.Memory.Display[:] {
-					logging.Printf(logging.MsgNoPrefix, "%v\n", val)
+					logging.Printf(logging.MsgAlwaysDisplay, "%v\n", val)
 				}
 			case "quit", "qui", "qu", "q":
 				os.Exit(0)
 			case "dump", "dum", "du", "d":
-				logging.Printf(logging.MsgNoPrefix,
+				logging.Printf(logging.MsgAlwaysDisplay,
 					"Registers: \n\tV0: 0x%X\n\tV1: 0x%X\n\tV2: 0x%X\n\tV3: 0x%X\n\tV4: 0x%X\n\tV5: 0x%X\n\tV6: 0x%X\n\tV7: 0x%X\n\tV8: 0x%X\n\tV9: 0x%X\n\tVA: 0x%X\n\tVB: 0x%X\n\tVC: 0x%X\n\tVD: 0x%X\n\tVE: 0x%X\n\tVF: 0x%X\n",
 					data.Registers.V[0x0],
 					data.Registers.V[0x1],
@@ -113,7 +116,7 @@ func main() {
 					data.Registers.V[0xE],
 					data.Registers.V[0xF],
 				)
-				logging.Printf(logging.MsgNoPrefix,
+				logging.Printf(logging.MsgAlwaysDisplay,
 					"\tI: 0x%X\n\tDT: 0x%X\n\tST: 0x%X\n\tPC: 0x%X\n\tSP: 0x%X\n",
 					data.Registers.I,
 					data.Registers.DT,

@@ -20,7 +20,7 @@ func CreateEmptyMemory() Memory {
 	var out = Memory{}
 	out.InterpreterReserved = (*[0x1FF]uint8)(unsafe.Pointer(&out.AllMemory))
 	out.MainMemory = (*[0xE00]uint8)(unsafe.Pointer(&out.AllMemory[0x200]))
-	out.Font = (*[80]uint8)(unsafe.Pointer(out.InterpreterReserved))
+	out.Font = (*[80]uint8)(unsafe.Pointer(&(*out.InterpreterReserved)[50]))
 	copy(out.Font[:], Font[:])
 	logging.Println(logging.MsgDebug, "Created empty memory")
 	return out

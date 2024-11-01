@@ -6,6 +6,7 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/averseabfun/gochip8/engine/impl"
 	"github.com/averseabfun/gochip8/engine/types"
@@ -33,6 +34,8 @@ func (data *Chip8Data) TickSingle() {
 
 TopSwitch:
 	switch inst {
+	case 0x0000:
+		break
 	case 0x00E0:
 		logging.Println(logging.MsgDebug, "Clearing screen")
 		for x := range data.Memory.Display {
@@ -41,27 +44,118 @@ TopSwitch:
 			}
 		}
 		data.Backend.FillBack(types.FromRGBNoErr(0, 0, 0))
-		data.Backend.TickRenderer()
 	case 0x00EE:
-		data.Registers.PC = data.Memory.Stack[data.Registers.SP] - 2
 		data.Registers.SP -= 1
+		data.Registers.PC = data.Memory.Stack[data.Registers.SP] - 2
 	default:
 		switch inst & 0xF000 {
+		case 0x1000:
+			data.Registers.PC = (inst & 0xFFF) - 2
+			break TopSwitch
+		case 0x2000:
+			data.Memory.Stack[data.Registers.SP] = data.Registers.PC + 2
+			data.Registers.SP += 1
+			data.Registers.PC = (inst & 0xFFF) - 2
+			break TopSwitch
+		case 0x3000:
+			var reg = data.Registers.V[(inst&0xF00)>>8]
+			var val = uint8(inst & 0xFF)
+			if reg == val {
+				data.Registers.PC += 2
+			}
+			break TopSwitch
+		case 0x4000:
+			var reg = data.Registers.V[(inst&0xF00)>>8]
+			var val = uint8(inst & 0xFF)
+			if reg != val {
+				data.Registers.PC += 2
+			}
+			break TopSwitch
+		case 0x5000:
+			var reg = data.Registers.V[(inst&0xF00)>>8]
+			var val = data.Registers.V[(inst&0xF0)>>4]
+			if reg == val {
+				data.Registers.PC += 2
+			}
+			break TopSwitch
 		case 0x6000:
 			var register = (inst & 0xF00) >> 8
 			var storeData = uint8(inst & 0xFF)
 			data.Registers.V[register] = storeData
 			break TopSwitch
+		case 0x7000:
+			var register = (inst & 0xF00) >> 8
+			var storeData = uint8(inst & 0xFF)
+			data.Registers.V[register] += storeData
+			break TopSwitch
+		case 0x8000:
+			switch inst & 0xF {
+			case 0x0:
+				var register1 = (inst & 0xF00) >> 8
+				var register2 = (inst & 0xF0) >> 4
+				data.Registers.V[register1] = data.Registers.V[register2]
+				break TopSwitch
+			case 0x1:
+				var register1 = (inst & 0xF00) >> 8
+				var register2 = (inst & 0xF0) >> 4
+				data.Registers.V[register1] |= data.Registers.V[register2]
+				break TopSwitch
+			case 0x2:
+				var register1 = (inst & 0xF00) >> 8
+				var register2 = (inst & 0xF0) >> 4
+				data.Registers.V[register1] &= data.Registers.V[register2]
+				break TopSwitch
+			case 0x3:
+				var register1 = (inst & 0xF00) >> 8
+				var register2 = (inst & 0xF0) >> 4
+				data.Registers.V[register1] ^= data.Registers.V[register2]
+				break TopSwitch
+			case 0x4:
+				var register1 = (inst & 0xF00) >> 8
+				var register2 = (inst & 0xF0) >> 4
+				var result = data.Registers.V[register1] + data.Registers.V[register2]
+				var overflow = result < data.Registers.V[register1] || result < data.Registers.V[register2]
+				data.Registers.V[register1] = result
+				if overflow {
+					data.Registers.V[0xF] = 1
+				} else {
+					data.Registers.V[0xF] = 0
+				}
+				break TopSwitch
+			case 0x5:
+				var register1 = (inst & 0xF00) >> 8
+				var register2 = (inst & 0xF0) >> 4
+				var underflow = data.Registers.V[register2] > data.Registers.V[register1]
+				data.Registers.V[register1] -= data.Registers.V[register2]
+				if underflow {
+					data.Registers.V[0xF] = 0
+				} else {
+					data.Registers.V[0xF] = 1
+				}
+				break TopSwitch
+			case 0x7:
+				var register1 = (inst & 0xF00) >> 8
+				var register2 = (inst & 0xF0) >> 4
+				var underflow = data.Registers.V[register1] > data.Registers.V[register2]
+				data.Registers.V[register1] = data.Registers.V[register2] - data.Registers.V[register1]
+				if underflow {
+					data.Registers.V[0xF] = 0
+				} else {
+					data.Registers.V[0xF] = 1
+				}
+				break TopSwitch
+			default:
+				logging.Panicf("got unknown instruction 0x%X at PC:0x%X", inst, data.Registers.PC)
+			}
+		case 0x9000:
+			var reg = data.Registers.V[(inst&0xF00)>>8]
+			var val = data.Registers.V[(inst&0xF0)>>4]
+			if reg != val {
+				data.Registers.PC += 2
+			}
+			break TopSwitch
 		case 0xA000:
 			data.Registers.I = inst & 0xFFF
-			break TopSwitch
-		case 0x1000:
-			data.Registers.PC = (inst & 0xFFF) - 2
-			break TopSwitch
-		case 0x2000:
-			data.Registers.SP += 1
-			data.Memory.Stack[data.Registers.SP] = data.Registers.PC
-			data.Registers.PC = (inst & 0xFFF) - 2
 			break TopSwitch
 		case 0xD000:
 			var numberBytes = uint8(inst & 0xF)
@@ -93,19 +187,6 @@ TopSwitch:
 				x = x - 8
 				y++
 			}
-			data.Backend.TickRenderer()
-			break TopSwitch
-		case 0x7000:
-			var register = (inst & 0xF00) >> 8
-			var storeData = uint8(inst & 0xFF)
-			data.Registers.V[register] += storeData
-			break TopSwitch
-		case 0x4000:
-			var register = (inst & 0xF00) >> 8
-			var storeData = uint8(inst & 0xFF)
-			if data.Registers.V[register] != storeData {
-				data.Registers.PC += 2
-			}
 			break TopSwitch
 		case 0xE000:
 			switch inst & 0xFF {
@@ -121,11 +202,25 @@ TopSwitch:
 					data.Registers.PC += 2
 				}
 				break TopSwitch
+			default:
+				logging.Panicf("got unknown instruction 0x%X at PC:0x%X", inst, data.Registers.PC)
+			}
+		case 0xF000:
+			switch inst & 0xFF {
+			case 0x65:
+				var register = (inst & 0xF00) >> 8
+				for offset := data.Registers.I; offset < data.Registers.I+register; offset++ {
+					data.Registers.V[offset-data.Registers.I] = data.Memory.AllMemory[offset]
+				}
+				break TopSwitch
+			default:
+				logging.Panicf("got unknown instruction 0x%X at PC:0x%X", inst, data.Registers.PC)
 			}
 		default:
 			logging.Panicf("got unknown instruction 0x%X at PC:0x%X", inst, data.Registers.PC)
 		}
 	}
+	data.Backend.TickRenderer()
 	data.Registers.PC += 2
 }
 
@@ -139,7 +234,16 @@ func (data *Chip8Data) TickAll() {
 	var d = 0
 	done := make(chan os.Signal, 1)
 	signal.Notify(done, syscall.SIGINT, syscall.SIGTERM)
+	defer func() {
+		if recover() == nil {
+			return
+		}
+		done <- syscall.SIGINT
+	}()
+	var startTime time.Time
+	var duration = time.Duration(1 / data.ClockSpeed * float64(time.Second))
 	for {
+		startTime = time.Now()
 		select {
 		case <-done:
 			signal.Stop(done)
@@ -191,5 +295,6 @@ func (data *Chip8Data) TickAll() {
 		default:
 			data.TickSingle()
 		}
+		time.Sleep(duration - time.Now().Sub(startTime))
 	}
 }

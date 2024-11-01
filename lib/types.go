@@ -10,6 +10,7 @@ type Chip8Data struct {
 	KeysPressed KeysPressed
 	Backend     interfaces.FullIO
 	Initialized bool
+	ClockSpeed  float64
 }
 
 func (data *Chip8Data) InitalizeData() {
@@ -19,5 +20,6 @@ func (data *Chip8Data) InitalizeData() {
 	data.Registers.PC = 0x200
 	data.Backend.InitRenderer("GoChip8", 128, 64)
 	data.Backend.TickRenderer()
+	data.ClockSpeed = 500
 	data.Initialized = true
 }

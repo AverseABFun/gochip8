@@ -13,7 +13,8 @@ import (
 type Level int
 
 const (
-	MsgSpam = Level(iota)
+	MsgNeverDisplay = Level(iota)
+	MsgSpam
 	MsgNoPrefix
 	MsgInfo
 	MsgDebug
@@ -21,7 +22,7 @@ const (
 	MsgError
 	MsgPanic
 	MsgFatal
-	MsgNeverDisplay
+	MsgAlwaysDisplay
 )
 
 func GetPrefix(level Level) string {
