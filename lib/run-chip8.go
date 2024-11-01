@@ -99,16 +99,19 @@ TopSwitch:
 				var register1 = (inst & 0xF00) >> 8
 				var register2 = (inst & 0xF0) >> 4
 				data.Registers.V[register1] |= data.Registers.V[register2]
+				data.Registers.V[0xF] = 0
 				break TopSwitch
 			case 0x2:
 				var register1 = (inst & 0xF00) >> 8
 				var register2 = (inst & 0xF0) >> 4
 				data.Registers.V[register1] &= data.Registers.V[register2]
+				data.Registers.V[0xF] = 0
 				break TopSwitch
 			case 0x3:
 				var register1 = (inst & 0xF00) >> 8
 				var register2 = (inst & 0xF0) >> 4
 				data.Registers.V[register1] ^= data.Registers.V[register2]
+				data.Registers.V[0xF] = 0
 				break TopSwitch
 			case 0x4:
 				var register1 = (inst & 0xF00) >> 8
@@ -133,6 +136,14 @@ TopSwitch:
 					data.Registers.V[0xF] = 1
 				}
 				break TopSwitch
+			case 0x6:
+				var register = (inst & 0xF00) >> 8
+				var register2 = (inst & 0xF0) >> 4
+				data.Registers.V[register] = data.Registers.V[register2]
+				var F = (data.Registers.V[register] & 1)
+				data.Registers.V[register] >>= 1
+				data.Registers.V[0xF] = F
+				break TopSwitch
 			case 0x7:
 				var register1 = (inst & 0xF00) >> 8
 				var register2 = (inst & 0xF0) >> 4
@@ -143,6 +154,14 @@ TopSwitch:
 				} else {
 					data.Registers.V[0xF] = 1
 				}
+				break TopSwitch
+			case 0xE:
+				var register = (inst & 0xF00) >> 8
+				var register2 = (inst & 0xF0) >> 4
+				data.Registers.V[register] = data.Registers.V[register2]
+				var F = (data.Registers.V[register] & 0x80) >> 7
+				data.Registers.V[register] <<= 1
+				data.Registers.V[0xF] = F
 				break TopSwitch
 			default:
 				logging.Panicf("got unknown instruction 0x%X at PC:0x%X", inst, data.Registers.PC)
@@ -156,6 +175,9 @@ TopSwitch:
 			break TopSwitch
 		case 0xA000:
 			data.Registers.I = inst & 0xFFF
+			break TopSwitch
+		case 0xB000:
+			data.Registers.PC = (inst & 0xFFF) + uint16(data.Registers.V[0])
 			break TopSwitch
 		case 0xD000:
 			var numberBytes = uint8(inst & 0xF)
@@ -207,12 +229,79 @@ TopSwitch:
 			}
 		case 0xF000:
 			switch inst & 0xFF {
+			case 0x07:
+				var register = (inst & 0xF00) >> 8
+				data.Registers.V[register] = data.Registers.DT
+			case 0x0A:
+				var register = (inst & 0xF00) >> 8
+				if data.KeysPressed.Keys[0] {
+					data.Registers.V[register] = 0
+				} else if data.KeysPressed.Keys[1] {
+					data.Registers.V[register] = 1
+				} else if data.KeysPressed.Keys[2] {
+					data.Registers.V[register] = 2
+				} else if data.KeysPressed.Keys[3] {
+					data.Registers.V[register] = 3
+				} else if data.KeysPressed.Keys[4] {
+					data.Registers.V[register] = 4
+				} else if data.KeysPressed.Keys[5] {
+					data.Registers.V[register] = 5
+				} else if data.KeysPressed.Keys[6] {
+					data.Registers.V[register] = 6
+				} else if data.KeysPressed.Keys[7] {
+					data.Registers.V[register] = 7
+				} else if data.KeysPressed.Keys[8] {
+					data.Registers.V[register] = 8
+				} else if data.KeysPressed.Keys[9] {
+					data.Registers.V[register] = 9
+				} else if data.KeysPressed.Keys[10] {
+					data.Registers.V[register] = 10
+				} else if data.KeysPressed.Keys[11] {
+					data.Registers.V[register] = 11
+				} else if data.KeysPressed.Keys[12] {
+					data.Registers.V[register] = 12
+				} else if data.KeysPressed.Keys[13] {
+					data.Registers.V[register] = 13
+				} else if data.KeysPressed.Keys[14] {
+					data.Registers.V[register] = 14
+				} else if data.KeysPressed.Keys[15] {
+					data.Registers.V[register] = 15
+				} else {
+					data.Registers.PC -= 2
+				}
+			case 0x15:
+				var register = (inst & 0xF00) >> 8
+				data.Registers.DT = data.Registers.V[register]
+			case 0x1E:
+				var register = (inst & 0xF00) >> 8
+				data.Registers.I += uint16(data.Registers.V[register])
+			case 0x33:
+				var register = (inst & 0xF00) >> 8
+				var value = data.Registers.V[register]
+				// Ones-place
+				data.Memory.AllMemory[data.Registers.I+2] = value % 10
+				value /= 10
+
+				// Tens-place
+				data.Memory.AllMemory[data.Registers.I+1] = value % 10
+				value /= 10
+
+				// Hundreds-place
+				data.Memory.AllMemory[data.Registers.I] = value % 10
+			case 0x55:
+				var register = (inst & 0xF00) >> 8
+				var offset uint16
+				for offset = data.Registers.I; offset <= data.Registers.I+register; offset++ {
+					data.Memory.AllMemory[offset] = data.Registers.V[offset-data.Registers.I]
+				}
+				data.Registers.I = offset
 			case 0x65:
 				var register = (inst & 0xF00) >> 8
-				for offset := data.Registers.I; offset < data.Registers.I+register; offset++ {
+				var offset uint16
+				for offset = data.Registers.I; offset <= data.Registers.I+register; offset++ {
 					data.Registers.V[offset-data.Registers.I] = data.Memory.AllMemory[offset]
 				}
-				break TopSwitch
+				data.Registers.I = offset
 			default:
 				logging.Panicf("got unknown instruction 0x%X at PC:0x%X", inst, data.Registers.PC)
 			}
@@ -239,6 +328,25 @@ func (data *Chip8Data) TickAll() {
 			return
 		}
 		done <- syscall.SIGINT
+	}()
+	go func() {
+		var startTime time.Time
+		var duration = time.Duration(1 / data.ClockSpeed * float64(time.Second))
+		for {
+			startTime = time.Now()
+			select {
+			case <-done:
+				return
+			default:
+				if data.Registers.DT > 0 {
+					data.Registers.DT -= 1
+				}
+				if data.Registers.ST > 0 {
+					data.Registers.ST -= 1
+				}
+				time.Sleep(duration - time.Since(startTime))
+			}
+		}
 	}()
 	var startTime time.Time
 	var duration = time.Duration(1 / data.ClockSpeed * float64(time.Second))
@@ -295,6 +403,6 @@ func (data *Chip8Data) TickAll() {
 		default:
 			data.TickSingle()
 		}
-		time.Sleep(duration - time.Now().Sub(startTime))
+		time.Sleep(duration - time.Since(startTime))
 	}
 }

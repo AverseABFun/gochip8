@@ -22,12 +22,13 @@ func main() {
 		KeysPressed: lib.KeysPressed{},
 		Backend:     &impl.OpenGL{},
 	}
-	var file, err = os.Open("chip8-test-suite/bin/3-corax+.ch8")
+	var file, err = os.Open("chip8-test-suite/bin/6-keypad.ch8")
 	if err != nil {
 		panic(err)
 	}
 	data.Memory.LoadMemory(file)
 	data.InitalizeData()
+	data.Memory.AllMemory[0x1FF] = 1
 	logging.SetDisplay(logging.MsgNoPrefix)
 	data.TickAll()
 	var c = ""
