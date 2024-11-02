@@ -12,6 +12,19 @@ type RawRenderer interface {
 	FillBack(color types.Color) error
 }
 
+type AudioRenderer interface {
+	InitAudio() error
+	DeinitAudio() error
+	PlayTone(freqHz float64) (AudioID, error)
+	Playing(tone AudioID) bool
+	PauseTone(tone AudioID) error
+	ResumeTone(tone AudioID) error
+	StopTone(tone AudioID) error
+	StopAll() error
+}
+
+type AudioID uint64
+
 type StackRenderer interface {
 	Parent() RawRenderer
 	SetParent(rr RawRenderer)

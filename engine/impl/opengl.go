@@ -200,10 +200,12 @@ func (rr *OpenGL) key_callback(w *glfw.Window, key glfw.Key, scancode int, actio
 	if !rr.focused {
 		return
 	}
-	for _, grabber := range rr.grabbers {
+	for i, grabber := range rr.grabbers {
+		logging.Printf(logging.MsgDebug, "Calling grabber %d/%d\n", i, len(rr.grabbers))
 		if grabber.GrabKey(key, scancode, action, mods) {
 			break
 		}
+		logging.Println(logging.MsgDebug, "Moving on")
 	}
 }
 
@@ -225,8 +227,9 @@ func (rr *OpenGL) focus_callback(w *glfw.Window, focused bool) {
 	rr.focused = focused
 }
 
-func (rr *OpenGL) PushGrabber(grabber interfaces.KeyGrabber) {
+func (rr *OpenGL) PushGrabber(grabber interfaces.KeyGrabber) (index uint32) {
 	rr.grabbers = append(rr.grabbers, grabber)
+	return uint32(len(rr.grabbers)) - 1
 }
 
 func (rr *OpenGL) PopGrabber() (interfaces.KeyGrabber, error) {

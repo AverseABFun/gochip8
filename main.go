@@ -17,18 +17,18 @@ func init() {
 
 func main() {
 	var data = lib.Chip8Data{
-		Memory:      lib.CreateEmptyMemory(),
-		Registers:   lib.Registers{},
-		KeysPressed: lib.KeysPressed{},
-		Backend:     &impl.OpenGL{},
+		Memory:       lib.CreateEmptyMemory(),
+		Registers:    lib.Registers{},
+		KeysPressed:  lib.KeysPressed{},
+		Backend:      &impl.OpenGL{},
+		AudioBackend: &impl.Beep{},
 	}
-	var file, err = os.Open("chip8-test-suite/bin/6-keypad.ch8")
+	var file, err = os.Open("chip8-test-suite/bin/7-beep.ch8")
 	if err != nil {
 		panic(err)
 	}
 	data.Memory.LoadMemory(file)
 	data.InitalizeData()
-	data.Memory.AllMemory[0x1FF] = 1
 	logging.SetDisplay(logging.MsgNoPrefix)
 	data.TickAll()
 	var c = ""

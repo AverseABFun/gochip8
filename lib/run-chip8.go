@@ -234,44 +234,76 @@ TopSwitch:
 				data.Registers.V[register] = data.Registers.DT
 			case 0x0A:
 				var register = (inst & 0xF00) >> 8
-				if data.KeysPressed.Keys[0] {
-					data.Registers.V[register] = 0
-				} else if data.KeysPressed.Keys[1] {
-					data.Registers.V[register] = 1
-				} else if data.KeysPressed.Keys[2] {
-					data.Registers.V[register] = 2
-				} else if data.KeysPressed.Keys[3] {
-					data.Registers.V[register] = 3
-				} else if data.KeysPressed.Keys[4] {
-					data.Registers.V[register] = 4
-				} else if data.KeysPressed.Keys[5] {
-					data.Registers.V[register] = 5
-				} else if data.KeysPressed.Keys[6] {
-					data.Registers.V[register] = 6
-				} else if data.KeysPressed.Keys[7] {
-					data.Registers.V[register] = 7
-				} else if data.KeysPressed.Keys[8] {
-					data.Registers.V[register] = 8
-				} else if data.KeysPressed.Keys[9] {
-					data.Registers.V[register] = 9
-				} else if data.KeysPressed.Keys[10] {
-					data.Registers.V[register] = 10
-				} else if data.KeysPressed.Keys[11] {
-					data.Registers.V[register] = 11
-				} else if data.KeysPressed.Keys[12] {
-					data.Registers.V[register] = 12
-				} else if data.KeysPressed.Keys[13] {
-					data.Registers.V[register] = 13
-				} else if data.KeysPressed.Keys[14] {
-					data.Registers.V[register] = 14
-				} else if data.KeysPressed.Keys[15] {
-					data.Registers.V[register] = 15
-				} else {
-					data.Registers.PC -= 2
+				var outputted = false
+				f := func(key glfw.Key, scancode int, action glfw.Action, mods glfw.ModifierKey) (continueSearching bool) {
+					logging.Println(logging.MsgDebug, "Got key")
+					c := glfw.GetKeyName(key, scancode)
+					var d uint8 = 0
+					if action != glfw.Release {
+						goto End
+					}
+					switch strings.ToLower(c) {
+					case "1":
+						d = 0x1
+					case "2":
+						d = 0x2
+					case "3":
+						d = 0x3
+					case "4":
+						d = 0xC
+					case "q":
+						d = 0x4
+					case "w":
+						d = 0x5
+					case "e":
+						d = 0x6
+					case "r":
+						d = 0xD
+					case "a":
+						d = 0x7
+					case "s":
+						d = 0x8
+					case "d":
+						d = 0x9
+					case "f":
+						d = 0xE
+					case "z":
+						d = 0xA
+					case "x":
+						d = 0x0
+					case "c":
+						d = 0xB
+					case "v":
+						d = 0xF
+					default:
+						goto End
+					}
+					data.Registers.V[register] = d
+					logging.Println(logging.MsgDebug, "Got released key")
+					outputted = true
+				End:
+					return false
 				}
+				var grab1, _ = data.Backend.PopGrabber()
+				var grabber = data.Backend.PushGrabber(impl.FuncGrabber{Function: f})
+				logging.Println(logging.MsgDebug, "Pushed")
+				for !outputted {
+					data.Backend.TickRenderer()
+				}
+				data.Backend.PopGrabberAt(grabber)
+				data.Backend.PushGrabber(grab1)
 			case 0x15:
 				var register = (inst & 0xF00) >> 8
 				data.Registers.DT = data.Registers.V[register]
+			case 0x18:
+				var register = (inst & 0xF00) >> 8
+				data.Registers.ST = data.Registers.V[register]
+				var err error
+				data.CurrentToneID, err = data.AudioBackend.PlayTone(500)
+				if err != nil {
+					panic(err)
+				}
+				data.Playing = true
 			case 0x1E:
 				var register = (inst & 0xF00) >> 8
 				data.Registers.I += uint16(data.Registers.V[register])
@@ -314,13 +346,54 @@ TopSwitch:
 }
 
 func (data *Chip8Data) TickAll() {
-	ch := make(chan string)
 	f := func(key glfw.Key, scancode int, action glfw.Action, mods glfw.ModifierKey) (continueSearching bool) {
-		ch <- glfw.GetKeyName(key, scancode)
+		c := glfw.GetKeyName(key, scancode)
+		var d = 0
+		if action == glfw.Repeat {
+			goto End
+		}
+		switch strings.ToLower(c) {
+		case "1":
+			d = 0x1
+		case "2":
+			d = 0x2
+		case "3":
+			d = 0x3
+		case "4":
+			d = 0xC
+		case "q":
+			d = 0x4
+		case "w":
+			d = 0x5
+		case "e":
+			d = 0x6
+		case "r":
+			d = 0xD
+		case "a":
+			d = 0x7
+		case "s":
+			d = 0x8
+		case "d":
+			d = 0x9
+		case "f":
+			d = 0xE
+		case "z":
+			d = 0xA
+		case "x":
+			d = 0x0
+		case "c":
+			d = 0xB
+		case "v":
+			d = 0xF
+		default:
+			goto End
+		}
+		data.KeysPressed.Keys[d] = action == glfw.Press
+		logging.Println(logging.MsgDebug, data.KeysPressed.Keys)
+	End:
 		return false
 	}
-	data.Backend.PushGrabber(impl.FuncGrabber{Function: f})
-	var d = 0
+	var grabber = data.Backend.PushGrabber(impl.FuncGrabber{Function: f})
 	done := make(chan os.Signal, 1)
 	signal.Notify(done, syscall.SIGINT, syscall.SIGTERM)
 	defer func() {
@@ -336,6 +409,8 @@ func (data *Chip8Data) TickAll() {
 			startTime = time.Now()
 			select {
 			case <-done:
+				signal.Stop(done)
+				data.Backend.PopGrabberAt(grabber)
 				return
 			default:
 				if data.Registers.DT > 0 {
@@ -343,6 +418,10 @@ func (data *Chip8Data) TickAll() {
 				}
 				if data.Registers.ST > 0 {
 					data.Registers.ST -= 1
+				} else if data.Playing && data.CurrentToneID != 0 {
+					data.AudioBackend.StopAll()
+					data.CurrentToneID = 0
+					data.Playing = false
 				}
 				time.Sleep(duration - time.Since(startTime))
 			}
@@ -356,50 +435,6 @@ func (data *Chip8Data) TickAll() {
 		case <-done:
 			signal.Stop(done)
 			return
-		case c := <-ch:
-			if !strings.HasSuffix(c, ";") {
-				switch strings.ToLower(c)[0] {
-				case '1':
-					d = 0x1
-				case '2':
-					d = 0x2
-				case '3':
-					d = 0x3
-				case '4':
-					d = 0xC
-				case 'q':
-					d = 0x4
-				case 'w':
-					d = 0x5
-				case 'e':
-					d = 0x6
-				case 'r':
-					d = 0xD
-				case 'a':
-					d = 0x7
-				case 's':
-					d = 0x8
-				case 'd':
-					d = 0x9
-				case 'f':
-					d = 0xE
-				case 'z':
-					d = 0xA
-				case 'x':
-					d = 0x0
-				case 'c':
-					d = 0xB
-				case 'v':
-					d = 0xF
-				default:
-					goto EndIf
-				}
-				data.KeysPressed.Keys = [16]bool{}
-				data.KeysPressed.Keys[d] = true
-				logging.Println(logging.MsgDebug, data.KeysPressed.Keys)
-			}
-		EndIf:
-			break
 		default:
 			data.TickSingle()
 		}

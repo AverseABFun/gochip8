@@ -11,7 +11,7 @@ type MouseGrabber interface {
 }
 
 type KeyProvider interface {
-	PushGrabber(grabber KeyGrabber)
+	PushGrabber(grabber KeyGrabber) (index uint32)
 	PopGrabber() (KeyGrabber, error)
 	PushGrabberAt(grabber KeyGrabber, index uint32)
 	PopGrabberAt(index uint32) (KeyGrabber, error)
