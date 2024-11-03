@@ -23,7 +23,7 @@ func main() {
 		KeysPressed:     lib.KeysPressed{},
 		Backend:         &impl.OpenGL{},
 		AudioBackend:    &impl.Beep{},
-		ClockSpeed:      420,
+		InstPerFrame:    11,
 		BackgroundColor: types.FromRGBNoErr(0, 0, 0),
 		ForegroundColor: types.FromRGBNoErr(0, types.MAX_UINT6, 0),
 	}
@@ -86,8 +86,8 @@ func main() {
 			c = strings.TrimSuffix(c, ";")
 			switch strings.ToLower(c) {
 			case "speed", "spee", "spe", "sp", "p":
-				fmt.Print("Please enter the speed in Hz: ")
-				fmt.Scanf("%f\n", &data.ClockSpeed)
+				fmt.Print("Please enter the speed in instructions per frame: ")
+				fmt.Scanf("%d\n", &data.InstPerFrame)
 			case "step", "s", "st", "ste":
 				logging.Println(logging.MsgInfo, "Stepping...")
 				data.TickSingle()

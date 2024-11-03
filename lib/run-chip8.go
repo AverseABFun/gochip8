@@ -183,10 +183,6 @@ TopSwitch:
 			var numberBytes = uint8(inst & 0xF)
 			var x = data.Registers.V[(inst&0xF00)>>8]
 			var y = data.Registers.V[(inst&0xF0)>>4]
-			var startTimer = *data.DrawTimer
-			for startTimer == *data.DrawTimer {
-				data.busyWork = !data.busyWork
-			}
 			logging.Printf(logging.MsgDebug, "Writing %d bytes from 0x%X to screen pos (%d, %d)\n", numberBytes, data.Registers.I, x, y)
 			data.Registers.V[0xF] = 0
 			y %= 32
@@ -213,6 +209,7 @@ TopSwitch:
 				x = x - 8
 				y++
 			}
+			data.DoneProcessing = true
 			break TopSwitch
 		case 0xE000:
 			switch inst & 0xFF {
@@ -407,21 +404,11 @@ func (data *Chip8Data) TickAll() {
 
 	go func() {
 		var startTime time.Time
-		var duration = time.Duration(1 / data.ClockSpeed * float64(time.Second))
-		var startTimer = (*data.DrawTimer)
+		var duration = time.Duration(16670000 * float64(time.Nanosecond))
 		for {
 			startTime = time.Now()
-			select {
-			case <-done:
-				return
-			default:
-				data.TickSingle()
-			}
-			time.Sleep(duration - time.Since(startTime))
-			if startTimer < (*data.DrawTimer) {
-				time.Sleep(time.Duration(16670000 * float64(time.Nanosecond)))
-				startTimer = (*data.DrawTimer)
-			}
+			(*data.DrawTimer) += 1
+			time.Sleep(time.Duration(math.Max(float64(duration-time.Since(startTime)), 0)))
 		}
 	}()
 
@@ -447,7 +434,15 @@ func (data *Chip8Data) TickAll() {
 				data.CurrentToneID = 0
 				data.Playing = false
 			}
-			time.Sleep(time.Duration(math.Max(float64(duration-time.Since(startTime)), 0)))
+			for i := 0; i < data.InstPerFrame; i++ {
+				data.TickSingle()
+				if data.DoneProcessing {
+					break
+				}
+			}
+			data.DoneProcessing = false
+			for time.Since(startTime) < duration {
+			}
 		}
 	}
 }

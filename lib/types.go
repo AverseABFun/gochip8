@@ -12,11 +12,11 @@ type Chip8Data struct {
 	Backend         interfaces.FullIO
 	AudioBackend    interfaces.AudioRenderer
 	Initialized     bool
-	ClockSpeed      float64
+	InstPerFrame    int
 	CurrentToneID   interfaces.AudioID
 	Playing         bool
 	DrawTimer       *int
-	busyWork        bool
+	DoneProcessing  bool
 	BackgroundColor types.Color
 	ForegroundColor types.Color
 }
@@ -35,8 +35,8 @@ func (data *Chip8Data) InitalizeData() {
 	if err := data.AudioBackend.InitAudio(); err != nil {
 		panic(err)
 	}
-	if data.ClockSpeed == 0 {
-		data.ClockSpeed = 500
+	if data.InstPerFrame == 0 {
+		data.InstPerFrame = 11
 	}
 	var val = 0
 	data.DrawTimer = &val
