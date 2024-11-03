@@ -23,11 +23,14 @@ func main() {
 		KeysPressed:     lib.KeysPressed{},
 		Backend:         &impl.OpenGL{},
 		AudioBackend:    &impl.Beep{},
-		InstPerFrame:    11,
+		InstPerFrame:    50,
 		BackgroundColor: types.FromRGBNoErr(0, 0, 0),
 		ForegroundColor: types.FromRGBNoErr(0, types.MAX_UINT6, 0),
 	}
-	var file, err = os.Open("chip8-test-suite/bin/5-quirks.ch8")
+	if len(os.Args) < 2 {
+		logging.Fatalln("Too few arguments, expected at least one!")
+	}
+	var file, err = os.Open(os.Args[1])
 	if err != nil {
 		panic(err)
 	}
