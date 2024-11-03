@@ -2,6 +2,7 @@ package lib
 
 import (
 	"encoding/binary"
+	"math"
 	"os"
 	"os/signal"
 	"strings"
@@ -9,7 +10,6 @@ import (
 	"time"
 
 	"github.com/averseabfun/gochip8/engine/impl"
-	"github.com/averseabfun/gochip8/engine/types"
 	"github.com/averseabfun/gochip8/logging"
 	"github.com/go-gl/glfw/v3.3/glfw"
 )
@@ -43,7 +43,7 @@ TopSwitch:
 				data.Memory.Display[x][y] = 0
 			}
 		}
-		data.Backend.FillBack(types.FromRGBNoErr(0, 0, 0))
+		data.Backend.FillBack(data.BackgroundColor)
 	case 0x00EE:
 		data.Registers.SP -= 1
 		data.Registers.PC = data.Memory.Stack[data.Registers.SP] - 2
@@ -177,20 +177,24 @@ TopSwitch:
 			data.Registers.I = inst & 0xFFF
 			break TopSwitch
 		case 0xB000:
-			data.Registers.PC = (inst & 0xFFF) + uint16(data.Registers.V[0])
+			data.Registers.PC = (inst & 0xFFF) + uint16(data.Registers.V[0]) - 2
 			break TopSwitch
 		case 0xD000:
 			var numberBytes = uint8(inst & 0xF)
 			var x = data.Registers.V[(inst&0xF00)>>8]
 			var y = data.Registers.V[(inst&0xF0)>>4]
+			var startTimer = *data.DrawTimer
+			for startTimer == *data.DrawTimer {
+				data.busyWork = !data.busyWork
+			}
 			logging.Printf(logging.MsgDebug, "Writing %d bytes from 0x%X to screen pos (%d, %d)\n", numberBytes, data.Registers.I, x, y)
 			data.Registers.V[0xF] = 0
+			y %= 32
+			x %= 64
 			for offset := data.Registers.I; offset < data.Registers.I+uint16(numberBytes); offset++ {
-				y %= 64
 				var b = data.Memory.AllMemory[offset]
 				var bits = getBits(b)
 				for i := 0; i < 8; i++ {
-					x %= 128
 					var d uint8 = 0
 					if bits[i] {
 						d = 0xFF
@@ -200,9 +204,9 @@ TopSwitch:
 					}
 					data.Memory.Display[x][y] ^= d
 					if data.Memory.Display[x][y] > 0 {
-						data.Backend.DrawBackPixel(uint32(x), uint32(y), types.FromRGBNoErr(types.MAX_UINT6, types.MAX_UINT6, types.MAX_UINT6))
+						data.Backend.DrawBackPixel(uint32(x), uint32(y), data.ForegroundColor)
 					} else {
-						data.Backend.DrawBackPixel(uint32(x), uint32(y), types.FromRGBNoErr(0, 0, 0))
+						data.Backend.DrawBackPixel(uint32(x), uint32(y), data.BackgroundColor)
 					}
 					x++
 				}
@@ -288,7 +292,6 @@ TopSwitch:
 				var grabber = data.Backend.PushGrabber(impl.FuncGrabber{Function: f})
 				logging.Println(logging.MsgDebug, "Pushed")
 				for !outputted {
-					data.Backend.TickRenderer()
 				}
 				data.Backend.PopGrabberAt(grabber)
 				data.Backend.PushGrabber(grab1)
@@ -341,7 +344,6 @@ TopSwitch:
 			logging.Panicf("got unknown instruction 0x%X at PC:0x%X", inst, data.Registers.PC)
 		}
 	}
-	data.Backend.TickRenderer()
 	data.Registers.PC += 2
 }
 
@@ -402,42 +404,50 @@ func (data *Chip8Data) TickAll() {
 		}
 		done <- syscall.SIGINT
 	}()
+
 	go func() {
 		var startTime time.Time
 		var duration = time.Duration(1 / data.ClockSpeed * float64(time.Second))
+		var startTimer = (*data.DrawTimer)
 		for {
 			startTime = time.Now()
 			select {
 			case <-done:
-				signal.Stop(done)
-				data.Backend.PopGrabberAt(grabber)
 				return
 			default:
-				if data.Registers.DT > 0 {
-					data.Registers.DT -= 1
-				}
-				if data.Registers.ST > 0 {
-					data.Registers.ST -= 1
-				} else if data.Playing && data.CurrentToneID != 0 {
-					data.AudioBackend.StopAll()
-					data.CurrentToneID = 0
-					data.Playing = false
-				}
-				time.Sleep(duration - time.Since(startTime))
+				data.TickSingle()
+			}
+			time.Sleep(duration - time.Since(startTime))
+			if startTimer < (*data.DrawTimer) {
+				time.Sleep(time.Duration(16670000 * float64(time.Nanosecond)))
+				startTimer = (*data.DrawTimer)
 			}
 		}
 	}()
+
 	var startTime time.Time
-	var duration = time.Duration(1 / data.ClockSpeed * float64(time.Second))
+	var duration = time.Duration(16670000 * float64(time.Nanosecond))
 	for {
 		startTime = time.Now()
+		data.Backend.TickRenderer()
+		(*data.DrawTimer) += 1
 		select {
 		case <-done:
 			signal.Stop(done)
+			data.Backend.PopGrabberAt(grabber)
 			return
 		default:
-			data.TickSingle()
+			if data.Registers.DT > 0 {
+				data.Registers.DT -= 1
+			}
+			if data.Registers.ST > 0 {
+				data.Registers.ST -= 1
+			} else if data.Playing && data.CurrentToneID != 0 {
+				data.AudioBackend.StopAll()
+				data.CurrentToneID = 0
+				data.Playing = false
+			}
+			time.Sleep(time.Duration(math.Max(float64(duration-time.Since(startTime)), 0)))
 		}
-		time.Sleep(duration - time.Since(startTime))
 	}
 }

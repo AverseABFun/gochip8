@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/averseabfun/gochip8/engine/impl"
+	"github.com/averseabfun/gochip8/engine/types"
 	"github.com/averseabfun/gochip8/lib"
 	"github.com/averseabfun/gochip8/logging"
 )
@@ -17,13 +18,16 @@ func init() {
 
 func main() {
 	var data = lib.Chip8Data{
-		Memory:       lib.CreateEmptyMemory(),
-		Registers:    lib.Registers{},
-		KeysPressed:  lib.KeysPressed{},
-		Backend:      &impl.OpenGL{},
-		AudioBackend: &impl.Beep{},
+		Memory:          lib.CreateEmptyMemory(),
+		Registers:       lib.Registers{},
+		KeysPressed:     lib.KeysPressed{},
+		Backend:         &impl.OpenGL{},
+		AudioBackend:    &impl.Beep{},
+		ClockSpeed:      420,
+		BackgroundColor: types.FromRGBNoErr(0, 0, 0),
+		ForegroundColor: types.FromRGBNoErr(0, types.MAX_UINT6, 0),
 	}
-	var file, err = os.Open("chip8-test-suite/bin/7-beep.ch8")
+	var file, err = os.Open("chip8-test-suite/bin/5-quirks.ch8")
 	if err != nil {
 		panic(err)
 	}

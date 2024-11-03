@@ -187,11 +187,9 @@ func (rr *OpenGL) DrawBackPixel(x uint32, y uint32, color types.Color) error {
 
 func (rr *OpenGL) FillBack(color types.Color) error {
 	for x := uint32(0); x < rr.width; x++ {
-		var new = make([]types.Color, rr.height)
 		for y := uint32(0); y < rr.height; y++ {
-			new = append(new, color)
+			rr.pixels[x][y] = color
 		}
-		rr.pixels[x] = new
 	}
 	return nil
 }
