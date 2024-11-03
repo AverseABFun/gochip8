@@ -3,6 +3,7 @@ package lib
 import (
 	"encoding/binary"
 	"math"
+	"math/rand"
 	"os"
 	"os/signal"
 	"strings"
@@ -179,6 +180,11 @@ TopSwitch:
 		case 0xB000:
 			data.Registers.PC = (inst & 0xFFF) + uint16(data.Registers.V[0]) - 2
 			break TopSwitch
+		case 0xC000:
+			var reg = data.Registers.V[(inst&0xF00)>>8]
+			var val = uint8(inst & 0xFF)
+			data.Registers.V[reg] = uint8(rand.Uint32()) & val
+			break TopSwitch
 		case 0xD000:
 			var numberBytes = uint8(inst & 0xF)
 			var x = data.Registers.V[(inst&0xF00)>>8]
@@ -307,6 +313,9 @@ TopSwitch:
 			case 0x1E:
 				var register = (inst & 0xF00) >> 8
 				data.Registers.I += uint16(data.Registers.V[register])
+			case 0x29:
+				var register = (inst & 0xF00) >> 8
+				data.Registers.I = (uint16(data.Registers.V[register]) * 5) + 50
 			case 0x33:
 				var register = (inst & 0xF00) >> 8
 				var value = data.Registers.V[register]
